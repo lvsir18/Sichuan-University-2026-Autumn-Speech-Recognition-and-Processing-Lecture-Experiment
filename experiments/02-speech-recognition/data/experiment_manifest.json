@@ -1,0 +1,40 @@
+{
+  "course": "语音技术基础",
+  "chapter": "第5章 语音识别",
+  "version": "1.2.0",
+  "fixed_dataset": {
+    "id": "FLEURS-CMN-MINI-12-v1",
+    "sample_count": 12,
+    "license": "CC BY 4.0",
+    "integrity": "下载后逐文件记录并校验 SHA-256"
+  },
+  "experiments": [
+    {
+      "id": "exp01",
+      "title": "语音识别基础与评价",
+      "objectives": ["跑通语音到文本流程", "计算并解释 CER、WER、SER、RTF"],
+      "variables": ["固定 FLEURS 样本", "参考文本", "模型", "beam_size"],
+      "deliverables": ["单样本 JSON 结果", "指标解释", "误差类型分析"]
+    },
+    {
+      "id": "exp02",
+      "title": "模型与配置对比",
+      "objectives": ["理解模型规模的影响", "分析准确率与速度的权衡"],
+      "controlled_variables": ["FLEURS-CMN-MINI-12-v1", "参考文本", "beam_size", "运行设备"],
+      "independent_variable": "model",
+      "deliverables": ["模型对比 JSON", "对比表", "实验结论"]
+    },
+    {
+      "id": "exp03",
+      "title": "CTC 解码与语言模型",
+      "objectives": ["理解 CTC 折叠规则", "比较贪心与束搜索", "观察 n-gram 语言分数重排"],
+      "independent_variables": ["beam_width", "lm_weight"],
+      "deliverables": ["候选列表", "参数变化记录", "声学与语言信息关系分析"]
+    }
+  ],
+  "evidence_policy": {
+    "simulated": "仅用于课堂流程演示，不可作为模型性能结论",
+    "measured": "由当前设备、当前音频和当前模型实际推理得到",
+    "comparison_rule": "只有测试集、预处理、设备和解码条件一致时才比较模型"
+  }
+}

@@ -1,0 +1,28 @@
+name: asr-course-lab
+
+services:
+  asr-lab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: asr-course-lab:1.2
+    container_name: asr-course-lab
+    ports:
+      - "${ASR_LAB_PORT:-8000}:8000"
+    environment:
+      MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-50}"
+      OMP_NUM_THREADS: "${OMP_NUM_THREADS:-4}"
+      HF_TOKEN: "${HF_TOKEN:-}"
+    volumes:
+      - asr-models:/app/models
+      - asr-dataset:/app/data/fleurs-mini
+      - ./outputs:/app/outputs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${ASR_LAB_MEMORY_LIMIT:-6G}
+
+volumes:
+  asr-models:
+  asr-dataset:

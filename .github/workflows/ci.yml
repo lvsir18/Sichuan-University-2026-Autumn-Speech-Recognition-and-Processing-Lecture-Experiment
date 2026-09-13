@@ -1,0 +1,46 @@
+name: course-lab-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  speech-recognition:
+    name: Experiment 02 · Speech Recognition
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experiments/02-speech-recognition
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: experiments/02-speech-recognition/requirements-dev.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Ruff
+        run: python -m ruff check app scripts tests
+      - name: Pytest
+        run: python -m pytest -q
+      - name: Validate Compose
+        run: docker compose config --quiet
+
+  repository-policy:
+    name: Repository policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject tracked local artifacts
+        shell: bash
+        run: |
+          if git ls-files | grep -E '(^|/)(\.env|models|outputs|__pycache__)(/|$)|\.incomplete$'; then
+            echo "Local configuration, models, outputs, or caches must not be committed."
+            exit 1
+          fi

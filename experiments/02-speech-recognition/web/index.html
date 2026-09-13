@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="本科语音识别课程实验平台：ASR 基础、模型对比、CTC 解码与语言模型。">
+  <title>声识实验台 · ASR Course Lab</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#"><span class="brand-mark">声</span><span>声识实验台<small>ASR COURSE LAB</small></span></a>
+    <div class="top-actions"><span id="health" class="status"><i></i>服务检查中</span><a class="ghost" href="/docs" target="_blank">API 文档 ↗</a></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">第 5 章 · 语音识别</p>
+        <h1>让语音变成<br><em>可测量</em>的文字</h1>
+        <p class="lead">从完整识别流程出发，通过模型与解码对照实验，理解准确率、速度以及语言信息如何共同影响结果。</p>
+      </div>
+      <div class="signal-card" aria-hidden="true">
+        <div class="wave" id="wave"></div>
+        <div class="signal-label"><span>INPUT / 16 kHz</span><b>语 音 → 文 字</b></div>
+      </div>
+    </section>
+
+    <section class="course-map">
+      <button class="module active" data-tab="basic"><span>01</span><b>识别与评测</b><small>跑通 ASR 全流程</small></button>
+      <button class="module" data-tab="compare"><span>02</span><b>模型配置对比</b><small>观察精度—速度权衡</small></button>
+      <button class="module" data-tab="decode"><span>03</span><b>解码与语言模型</b><small>比较 Greedy / Beam / LM</small></button>
+    </section>
+
+    <section class="dataset-strip" id="dataset-strip">
+      <div class="dataset-icon">12<span>条</span></div>
+      <div><p class="step">FIXED COURSE DATASET</p><h2>FLEURS 中文迷你测试集</h2><p>固定编号 0000–0011 · 16 kHz · CC BY 4.0 · 预置 SHA-256 确保全班使用同一批语音</p></div>
+      <div class="dataset-action"><span id="dataset-status">正在检查数据…</span><button id="prepare-dataset" class="secondary">下载并校验数据集</button></div>
+    </section>
+
+    <section id="basic" class="lab-panel active">
+      <div class="panel-heading"><div><p class="step">EXPERIMENT 01</p><h2>语音识别基础实验</h2><p>选择内置样本快速演示，或上传自己的音频运行真实模型。</p></div><span class="goal">目标：掌握 CER / WER / SER / RTF</span></div>
+      <div class="workspace two-columns">
+        <form id="basic-form" class="control-card">
+          <h3>实验配置</h3>
+          <label>运行模式<select name="engine" class="engine-select"><option value="demo">内置演示（无需下载模型）</option><option value="dataset">固定数据集（真实识别）</option><option value="real">上传音频（真实识别）</option></select></label>
+          <div class="demo-fields"><label>演示样本<select name="sample_id" class="sample-select"></select></label></div>
+          <div class="dataset-fields hidden"><label>FLEURS 固定样本<select name="dataset_sample_id" class="dataset-sample-select"></select></label><audio class="dataset-audio" controls></audio></div>
+          <div class="real-fields hidden"><label class="dropzone">上传音频<input type="file" name="audio" accept="audio/*"><span>点击选择 WAV / MP3 / FLAC 等音频</span></label><label>参考文本<textarea name="reference" rows="3" placeholder="输入音频的正确转写，用于计算 CER/WER"></textarea></label></div>
+          <div class="field-row"><label>模型<select name="model"><option>tiny</option><option>base</option><option>small</option></select></label><label>Beam Size<input name="beam_size" type="number" value="1" min="1" max="20"></label></div>
+          <button class="primary" type="submit">运行实验 <span>→</span></button>
+          <p class="hint">首次使用真实模式会下载模型；结果中的 measured / simulated 标签用于区分实测与演示。</p>
+        </form>
+        <div class="result-card" id="basic-result"><div class="empty"><span>◌</span><b>等待实验结果</b><p>完成左侧配置，然后运行识别。</p></div></div>
+      </div>
+    </section>
+
+    <section id="compare" class="lab-panel">
+      <div class="panel-heading"><div><p class="step">EXPERIMENT 02</p><h2>模型与配置对比实验</h2><p>保持样本不变，一次比较 tiny、base、small 三种配置。</p></div><span class="goal">目标：分析精度与效率的权衡</span></div>
+      <div class="workspace two-columns">
+        <form id="compare-form" class="control-card">
+          <h3>控制变量</h3>
+          <label>运行模式<select name="engine" class="engine-select"><option value="dataset">固定数据集 12 条（推荐）</option><option value="demo">内置演示</option><option value="real">上传单条音频</option></select></label>
+          <div class="demo-fields"><label>相同测试样本<select name="sample_id" class="sample-select"></select></label></div>
+          <div class="dataset-fields"><p class="dataset-note">将对 12 条固定中文语音逐条识别，并以总字符编辑数计算微平均 CER。</p></div>
+          <div class="real-fields hidden"><label class="dropzone">上传同一音频<input type="file" name="audio" accept="audio/*"><span>该音频将依次交给三个模型</span></label><label>参考文本<textarea name="reference" rows="3"></textarea></label></div>
+          <label>统一 Beam Size<input name="beam_size" type="range" min="1" max="10" value="1"><output>1</output></label>
+          <div class="check-grid"><label><input type="checkbox" name="models" value="tiny" checked> tiny</label><label><input type="checkbox" name="models" value="base" checked> base</label><label><input type="checkbox" name="models" value="small" checked> small</label></div>
+          <button class="primary" type="submit">开始对比 <span>→</span></button>
+        </form>
+        <div class="result-card" id="compare-result"><div class="empty"><span>⌁</span><b>尚无对比记录</b><p>建议先使用内置演示观察实验流程。</p></div></div>
+      </div>
+    </section>
+
+    <section id="decode" class="lab-panel">
+      <div class="panel-heading"><div><p class="step">EXPERIMENT 03</p><h2>CTC 解码与语言模型实验</h2><p>在固定声学概率上调整束宽与 LM 权重，观察候选排序变化。</p></div><span class="goal">目标：理解声学分数 + 语言分数</span></div>
+      <div class="workspace decode-grid">
+        <form id="decode-form" class="control-card">
+          <h3>解码参数</h3>
+          <label>Beam Width <strong id="beam-value">5</strong><input name="beam_width" type="range" min="1" max="20" value="5"></label>
+          <label>语言模型权重 α <strong id="lm-value">0.00</strong><input name="lm_weight" type="range" min="0" max="2" step="0.05" value="0"></label>
+          <div class="formula">总分 = 声学对数概率 + α × LM 对数概率</div>
+          <button class="primary" type="submit">重新解码 <span>↻</span></button>
+          <p class="hint">语料中“天气”比“天齐”更常见。逐步增大 α，观察语言模型何时修正声学混淆。</p>
+        </form>
+        <div class="result-card" id="decode-result"><div class="empty"><span>⌁</span><b>准备解码</b></div></div>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>语音识别课程实验 · CPU First</span><span>数据、参数、结果均可追溯</span></footer>
+  <div id="toast" role="status"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

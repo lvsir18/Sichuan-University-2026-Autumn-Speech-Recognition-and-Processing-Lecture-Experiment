@@ -1,0 +1,32 @@
+{
+  "course_dataset_id": "FLEURS-CMN-MINI-12-v1",
+  "dataset_id": "FluidInference/fleurs-full",
+  "origin_dataset": "google/fleurs",
+  "config": "cmn_hans_cn",
+  "split": "fixed-files",
+  "offset": 0,
+  "length": 12,
+  "name": "FLEURS 中文迷你测试集",
+  "language": "普通话（简体中文）",
+  "sample_rate": 16000,
+  "license": "CC BY 4.0",
+  "homepage": "https://huggingface.co/datasets/FluidInference/fleurs-full",
+  "origin_homepage": "https://huggingface.co/datasets/google/fleurs",
+  "transcript_url": "https://huggingface.co/datasets/FluidInference/fleurs-full/resolve/main/cmn_hans_cn/cmn_hans_cn.trans.txt",
+  "audio_url_template": "https://huggingface.co/datasets/FluidInference/fleurs-full/resolve/main/cmn_hans_cn/cmn_hans_cn_{index:04d}.wav",
+  "expected_sha256": [
+    "5214e16584b6498ddbd22f321738c0f62b19117ab1880b21e405fba983986b6a",
+    "d2ff70aa3a9b965bd2cab664852f2b5eb90d02dca4ed9066686d926152ade514",
+    "a50269a834d0efd270df29173bbe5f53a1a17184fe3998dabb1a73cbd223fd6a",
+    "63b40619cf2947db1fd13f0ab63bc502326eb40d73d87b3dbd969df426940536",
+    "e98bd3a78fa3eb617164375180940917a8c8a87ce90b0dbffbfff156a009bf17",
+    "6f0cc2a1a2a1f24736b9dd7a2e0109a64e4d1a2c88a0257ca1a83a734f700d09",
+    "81969af9e5b4592eb1a92d37b36943c07aa696d1665abac8b142d1579f423028",
+    "086e972a47a47ae056531d43e38acee2173307afc8c87c656b31aab12452aff3",
+    "5a61b505a5e00041724676529bb876a149ad10af288804f39c1c70252d900bff",
+    "e86c5fd3203f2de1bb5140b9606ed11e4596eee00e658d6ed7dc178a562869df",
+    "a7c9d60986fb8cd5e3c69220c8a0d2dbeb825c40a0139ab46ae393bfa0576100",
+    "d49bb00ee7bfa0e5c05b0ae8b2e22c768cdbc3bf77f4000f7a53e5f79d50cbab"
+  ],
+  "purpose": "仅用于本课程的统一 ASR 流程、模型对比和 CER/RTF 评价"
+}
