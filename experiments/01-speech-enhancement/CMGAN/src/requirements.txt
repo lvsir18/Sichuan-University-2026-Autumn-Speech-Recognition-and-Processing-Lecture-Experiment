@@ -1,0 +1,12 @@
+# Install torch/torchaudio from the CUDA wheel index and pesq from conda-forge as described in README.
+einops>=0.8,<1
+joblib>=1.4,<2
+matplotlib>=3.8,<4
+natsort>=8.4,<9
+numpy>=1.26,<2
+scipy>=1.11,<2
+SoundFile>=0.12,<1
+torch==2.11.0
+torchaudio==2.11.0
+torchcodec==0.11.1
+torchinfo>=1.8,<2
