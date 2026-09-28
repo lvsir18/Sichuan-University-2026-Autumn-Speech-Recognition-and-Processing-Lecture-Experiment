@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CMGAN 语音增强效果评估</title>
+  <style>
+    :root {
+      --red: #b92d1e;
+      --red-dark: #8f2017;
+      --ink: #17191d;
+      --muted: #69717d;
+      --line: #e8e4df;
+      --paper: #fff;
+      --canvas: #f6f4f1;
+      --blue: #8995a5;
+      --green: #2f7962;
+      --shadow: 0 18px 50px rgba(38, 29, 22, .07);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: "Aptos", "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.5;
+    }
+    .page { width: min(1160px, calc(100% - 40px)); margin: 34px auto 52px; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 38px 44px 34px;
+      color: white;
+      background: linear-gradient(112deg, #9c251a 0%, #bf3322 58%, #d44b31 100%);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      content: ""; position: absolute; width: 340px; height: 340px; right: -60px; top: -195px;
+      border: 1px solid rgba(255,255,255,.2); border-radius: 50%;
+      box-shadow: 0 0 0 35px rgba(255,255,255,.035), 0 0 0 75px rgba(255,255,255,.035);
+    }
+    .eyebrow { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; opacity: .78; font-weight: 700; }
+    h1 { margin: 10px 0 8px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.035em; line-height: 1.15; }
+    .hero p { margin: 0; color: rgba(255,255,255,.82); font-size: 15px; }
+    .hero-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 25px; }
+    .pill { padding: 7px 11px; border: 1px solid rgba(255,255,255,.28); border-radius: 999px; color: rgba(255,255,255,.93); font-size: 12px; background: rgba(255,255,255,.08); }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin: 32px 2px 16px; }
+    h2 { margin: 0; font-size: 21px; letter-spacing: -.02em; }
+    .section-sub { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+    .import-button {
+      flex: 0 0 auto; border: 1px solid #decac5; border-radius: 9px; background: white; color: var(--red-dark);
+      padding: 9px 13px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .import-button:hover { background: #fff8f6; border-color: var(--red); }
+    .csv-help { margin-top: 7px; color: var(--muted); font-size: 11px; }
+    .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .metric-card { background: var(--paper); border: 1px solid #eeeae6; border-radius: 14px; padding: 21px 23px 19px; box-shadow: 0 5px 18px rgba(38,29,22,.025); }
+    .card-top { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+    .metric-name { margin: 0; font-size: 19px; font-weight: 750; }
+    .metric-full { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .delta { color: var(--green); background: #edf6f2; border: 1px solid #d8ebe3; padding: 5px 9px; white-space: nowrap; border-radius: 999px; font-size: 12px; font-weight: 750; }
+    .metric-note { margin: 15px 0 19px; min-height: 20px; color: #626a74; font-size: 12px; }
+    .legend { display: flex; gap: 15px; margin: 0 0 11px; color: var(--muted); font-size: 11px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--blue); }
+    .dot.enhanced { background: var(--red); }
+    .bar-row { display: grid; grid-template-columns: 62px 1fr 72px; align-items: center; gap: 10px; margin: 11px 0; }
+    .bar-label { color: #5f6771; font-size: 12px; }
+    .track { position: relative; height: 12px; border-radius: 99px; background: #f0eeeb; overflow: hidden; }
+    .bar { height: 100%; min-width: 2px; border-radius: inherit; transition: width .35s ease; }
+    .bar.noisy { background: var(--blue); }
+    .bar.enhanced { background: linear-gradient(90deg, #b72d20, #d4553e); }
+    .bar-value { text-align: right; font-size: 13px; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .scale { display: flex; justify-content: space-between; margin: 1px 81px 0 72px; color: #9aa0a8; font-size: 10px; }
+    .std { display: flex; justify-content: space-between; gap: 10px; margin-top: 15px; padding-top: 12px; border-top: 1px solid #f0eeeb; color: #858c95; font-size: 11px; }
+    .std strong { color: #626a74; font-weight: 600; }
+    .reading { display: grid; grid-template-columns: 1fr auto; gap: 22px; align-items: center; margin-top: 18px; padding: 18px 22px; background: #fff; border: 1px solid #eeeae6; border-left: 4px solid var(--red); border-radius: 10px; }
+    .reading strong { display: block; margin-bottom: 3px; font-size: 14px; }
+    .reading p { margin: 0; color: var(--muted); font-size: 12px; }
+    .reading-mark { color: var(--red); font-size: 26px; font-weight: 800; white-space: nowrap; }
+    .table-wrap { margin-top: 26px; overflow: hidden; background: white; border: 1px solid #eeeae6; border-radius: 13px; }
+    .provenance { margin-top: 18px; padding: 18px 21px; background: #201f20; color: #f4f1ed; border-radius: 12px; }
+    .provenance-title { margin: 0 0 5px; font-size: 13px; font-weight: 750; }
+    .provenance p { margin: 0; color: #c4c0bc; font-size: 12px; }
+    .provenance code { display: block; margin-top: 11px; padding: 11px 13px; overflow-x: auto; border: 1px solid #454244; border-radius: 7px; background: #171617; color: #f0c3b8; font: 12px/1.55 Consolas, "Cascadia Code", monospace; white-space: pre; }
+    .provenance a { color: #f0b4a6; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 12px 16px; border-bottom: 1px solid #f0eeeb; text-align: right; font-variant-numeric: tabular-nums; }
+    th { background: #fbfaf9; color: #69717d; font-weight: 650; }
+    th:first-child, td:first-child { text-align: left; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .positive { color: var(--green); font-weight: 750; }
+    .foot { display: flex; justify-content: space-between; gap: 15px; margin: 14px 2px 0; color: #8a9098; font-size: 11px; }
+    .toast { position: fixed; right: 22px; bottom: 22px; padding: 11px 15px; color: white; background: #252a30; border-radius: 9px; box-shadow: var(--shadow); font-size: 13px; opacity: 0; transform: translateY(8px); transition: .2s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (max-width: 740px) {
+      .page { width: min(100% - 24px, 560px); margin-top: 12px; }
+      .hero { padding: 27px 24px; border-radius: 14px; }
+      .section-head { align-items: start; flex-direction: column; }
+      .cards { grid-template-columns: 1fr; }
+      .reading { grid-template-columns: 1fr; }
+      .reading-mark { font-size: 22px; }
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 620px; }
+      .foot { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="eyebrow">Speech Enhancement · Test Evaluation</div>
+      <h1>CMGAN 语音增强效果</h1>
+      <p>VoiceBank-DEMAND 测试集 · 对比增强前后的客观评价指标</p>
+      <div class="hero-meta">
+        <span class="pill">配对语音 824 组</span>
+        <span class="pill">单卡推理 · RTX 3050 Ti Laptop GPU</span>
+        <span class="pill">结果按测试语音逐条计算后取平均</span>
+      </div>
+    </header>
+
+    <section aria-labelledby="comparison-title">
+      <div class="section-head">
+        <div>
+          <h2 id="comparison-title">增强前后指标对比</h2>
+          <p class="section-sub">每张卡独立显示量纲；条形长度按对应指标的刻度绘制。</p>
+        </div>
+        <div>
+          <label class="import-button" for="csv-file">选择 metrics_summary.csv</label>
+          <input id="csv-file" type="file" accept=".csv,text/csv" hidden>
+          <div class="csv-help">选择评测输出目录中的汇总 CSV，即可更新图表和数据表。</div>
+        </div>
+      </div>
+      <div class="cards" id="metric-cards"></div>
+    </section>
+
+    <aside class="reading">
+      <div>
+        <strong>怎么读这组结果</strong>
+        <p>四项指标的平均值都提高了。SNR、SI-SDR 越高表示语音失真相对更小；STOI 越高表示可懂度越好；PESQ 越高表示感知语音质量越好。</p>
+      </div>
+      <div class="reading-mark">4 / 4 指标提升</div>
+    </aside>
+
+    <section class="table-wrap" aria-label="指标数据表">
+      <table>
+        <thead><tr><th>指标</th><th>增强前均值</th><th>增强后均值</th><th>变化</th><th>增强前标准差</th><th>增强后标准差</th></tr></thead>
+        <tbody id="metrics-table"></tbody>
+      </table>
+    </section>
+    <section class="provenance" aria-label="指标生成方式">
+      <h2 class="provenance-title">这些测试指标由什么代码生成？</h2>
+      <p>由项目评测脚本逐条读取 VoiceBank-DEMAND 测试集的干净 / 带噪语音，使用 CMGAN checkpoint 生成增强语音，再计算 SNR、SI-SDR、STOI 和 PESQ，汇总写入 CSV。<a href="../script/evaluate_cmgan_test.py">查看评测脚本</a></p>
+      <code>python .\script\evaluate_cmgan_test.py --overwrite --cut-len 64000</code>
+    </section>
+    <footer class="foot">
+      <span id="source-note">当前数据：本页面内置的 output/metrics_summary.csv 汇总值</span>
+      <span>样本数：824 对 · 分数为逐条指标的算术平均值</span>
+    </footer>
+  </main>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const initialMetrics = [
+      {metric:"SNR", unit:"dB", valid_pairs:824, noisy_mean:8.446054991990188, enhanced_mean:19.900906993909462, delta_mean:11.454852001919273, noisy_std:5.616971699487542, enhanced_std:4.245615173410879},
+      {metric:"SI-SDR", unit:"dB", valid_pairs:824, noisy_mean:8.445114223244703, enhanced_mean:19.793707535817727, delta_mean:11.348593312573021, noisy_std:5.618226631925662, enhanced_std:4.750009569358662},
+      {metric:"STOI", unit:"分", valid_pairs:824, noisy_mean:0.9210278256456221, enhanced_mean:0.9577897390049351, delta_mean:0.03676191335931306, noisy_std:0.07104671118638518, enhanced_std:0.047031423558345865},
+      {metric:"PESQ", unit:"分", valid_pairs:824, noisy_mean:1.9705662403291868, enhanced_mean:3.4057637024851677, delta_mean:1.4351974621559809, noisy_std:0.7540210560447904, enhanced_std:0.6223302587185852}
+    ];
+    const details = {
+      "SNR": {full:"信噪比", note:"看增强语音相对干净参考语音的误差大小；越高越好。", max:25, ticks:["0", "12.5", "25 dB"], digits:2, deltaDigits:2},
+      "SI-SDR": {full:"尺度不变信号失真比", note:"允许整体音量缩放后比较语音失真；越高越好。", max:25, ticks:["0", "12.5", "25 dB"], digits:2, deltaDigits:2},
+      "STOI": {full:"短时客观可懂度", note:"估计语音内容是否容易听懂；范围约 0–1，越高越好。", max:1, ticks:["0", "0.5", "1"], digits:3, deltaDigits:3},
+      "PESQ": {full:"感知语音质量", note:"估计语音听起来的质量；常用分数范围约 1–4.5，越高越好。", max:5, ticks:["0", "2.5", "5 分"], digits:2, deltaDigits:2}
+    };
+    let metrics = initialMetrics;
+    const fmt = (value, digits) => Number(value).toFixed(digits);
+    function render() {
+      const cards = document.getElementById("metric-cards");
+      cards.innerHTML = metrics.map((item, index) => {
+        const d = details[item.metric] || {full:item.metric, note:"增强前后指标对比。", max:Math.max(item.noisy_mean, item.enhanced_mean) * 1.2, ticks:["0", "", ""], digits:2, deltaDigits:2};
+        const noisyWidth = Math.max(0, Math.min(100, item.noisy_mean / d.max * 100));
+        const enhancedWidth = Math.max(0, Math.min(100, item.enhanced_mean / d.max * 100));
+        const delta = Number(item.delta_mean);
+        const deltaText = `${delta >= 0 ? "+" : ""}${fmt(delta, d.deltaDigits)} ${item.unit}`;
+        return `<article class="metric-card">
+          <div class="card-top"><div><h3 class="metric-name">${item.metric} <span style="color:#a9afb6;font-weight:500">·</span> ${d.full}</h3><div class="metric-full">${item.valid_pairs} 组配对语音</div></div><span class="delta">${deltaText}</span></div>
+          <p class="metric-note">${d.note}</p>
+          <div class="legend"><span><i class="dot"></i>带噪输入</span><span><i class="dot enhanced"></i>增强输出</span></div>
+          <div class="bar-row"><span class="bar-label">增强前</span><div class="track"><div class="bar noisy" style="width:${noisyWidth}%"></div></div><span class="bar-value">${fmt(item.noisy_mean, d.digits)}</span></div>
+          <div class="bar-row"><span class="bar-label">增强后</span><div class="track"><div class="bar enhanced" style="width:${enhancedWidth}%"></div></div><span class="bar-value">${fmt(item.enhanced_mean, d.digits)}</span></div>
+          <div class="scale"><span>${d.ticks[0]}</span><span>${d.ticks[1]}</span><span>${d.ticks[2]}</span></div>
+          <div class="std"><span><strong>增强前标准差</strong> ${fmt(item.noisy_std, d.digits)}</span><span><strong>增强后标准差</strong> ${fmt(item.enhanced_std, d.digits)}</span></div>
+        </article>`;
+      }).join("");
+      document.getElementById("metrics-table").innerHTML = metrics.map(item => {
+        const d = details[item.metric] || {digits:2, deltaDigits:2};
+        const delta = Number(item.delta_mean);
+        return `<tr><td><strong>${item.metric}</strong></td><td>${fmt(item.noisy_mean,d.digits)} ${item.unit}</td><td>${fmt(item.enhanced_mean,d.digits)} ${item.unit}</td><td class="${delta >= 0 ? "positive" : ""}">${delta >= 0 ? "+" : ""}${fmt(delta,d.deltaDigits)} ${item.unit}</td><td>${fmt(item.noisy_std,d.digits)}</td><td>${fmt(item.enhanced_std,d.digits)}</td></tr>`;
+      }).join("");
+      document.querySelector(".reading-mark").textContent = `${metrics.filter(x => Number(x.delta_mean) > 0).length} / ${metrics.length} 指标提升`;
+    }
+    function parseCsv(text) {
+      const lines = text.trim().split(/\r?\n/);
+      const headers = lines.shift().split(",").map(x => x.trim());
+      return lines.filter(Boolean).map(line => {
+        const cells = line.split(",");
+        return Object.fromEntries(headers.map((key, i) => [key, cells[i]?.trim()]));
+      }).map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, ["metric", "unit"].includes(key) ? value : Number(value)])));
+    }
+    document.getElementById("csv-file").addEventListener("change", async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const parsed = parseCsv(await file.text());
+        if (!parsed.length || !parsed.every(row => details[row.metric])) throw new Error("CSV 字段或指标名称不匹配");
+        metrics = parsed;
+        render();
+        document.getElementById("source-note").textContent = `当前数据：${file.name}`;
+        const toast = document.getElementById("toast");
+        toast.textContent = `已载入 ${parsed.length} 项指标`;
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 2400);
+      } catch (error) {
+        alert(`无法读取该 CSV：${error.message}`);
+      } finally { event.target.value = ""; }
+    });
+    render();
+  </script>
+</body>
+</html>

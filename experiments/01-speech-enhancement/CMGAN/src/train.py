@@ -7,6 +7,7 @@ import torch
 from utils import power_compress, power_uncompress
 import logging
 from torchinfo import summary
+from torch.utils.tensorboard import SummaryWriter
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -21,19 +22,25 @@ parser.add_argument("--data_dir", type=str, default='dir to VCTK-DEMAND dataset'
                     help="dir of VCTK+DEMAND dataset")
 parser.add_argument("--save_model_dir", type=str, default='./saved_model',
                     help="dir of saved model")
+parser.add_argument("--tensorboard_dir", type=str, default='./runs',
+                    help="dir for TensorBoard event files")
 parser.add_argument("--loss_weights", type=list, default=[0.1, 0.9, 0.2, 0.05],
                     help="weights of RI components, magnitude, time loss, and Metric Disc")
 args = parser.parse_args()
 logging.basicConfig(level=logging.INFO)
 
+if args.log_interval < 1:
+    raise ValueError("--log_interval must be at least 1")
+
 
 class Trainer:
-    def __init__(self, train_ds, test_ds, device):
+    def __init__(self, train_ds, test_ds, device, writer):
         self.n_fft = 400
         self.hop = 100
         self.train_ds = train_ds
         self.test_ds = test_ds
         self.device = device
+        self.writer = writer
         self.model = TSCNet(
             num_channel=64, num_features=self.n_fft // 2 + 1
         ).to(self.device)
@@ -129,14 +136,35 @@ class Trainer:
             torch.abs(generator_outputs["est_audio"] - generator_outputs["clean"])
         )
 
-        loss = (
-            args.loss_weights[0] * loss_ri
-            + args.loss_weights[1] * loss_mag
-            + args.loss_weights[2] * time_loss
-            + args.loss_weights[3] * gen_loss_GAN
-        )
+        weighted_losses = {
+            "ri_weighted": args.loss_weights[0] * loss_ri,
+            "magnitude_weighted": args.loss_weights[1] * loss_mag,
+            "time_weighted": args.loss_weights[2] * time_loss,
+            "adversarial_weighted": args.loss_weights[3] * gen_loss_GAN,
+        }
+        loss = sum(weighted_losses.values())
+        loss_details = {
+            "ri_raw": loss_ri,
+            "magnitude_raw": loss_mag,
+            "time_raw": time_loss,
+            "adversarial_raw": gen_loss_GAN,
+            **weighted_losses,
+        }
 
-        return loss
+        return loss, loss_details
+
+    @staticmethod
+    def metrics_to_scalars(generator_loss, loss_details, discriminator_loss):
+        metrics = {
+            "generator_total": generator_loss,
+            **loss_details,
+            "discriminator": discriminator_loss,
+        }
+        names = list(metrics)
+        values = torch.stack(
+            [value.detach().reshape(()) for value in metrics.values()]
+        ).cpu().tolist()
+        return dict(zip(names, values))
 
     def calculate_discriminator_loss(self, generator_outputs):
 
@@ -175,7 +203,7 @@ class Trainer:
         generator_outputs["one_labels"] = one_labels
         generator_outputs["clean"] = clean
 
-        loss = self.calculate_generator_loss(generator_outputs)
+        loss, loss_details = self.calculate_generator_loss(generator_outputs)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -188,9 +216,9 @@ class Trainer:
             discrim_loss_metric.backward()
             self.optimizer_disc.step()
         else:
-            discrim_loss_metric = torch.tensor([0.0])
+            discrim_loss_metric = torch.zeros((), device=self.device)
 
-        return loss.item(), discrim_loss_metric.item()
+        return self.metrics_to_scalars(loss, loss_details, discrim_loss_metric)
 
     @torch.no_grad()
     def test_step(self, batch):
@@ -206,31 +234,39 @@ class Trainer:
         generator_outputs["one_labels"] = one_labels
         generator_outputs["clean"] = clean
 
-        loss = self.calculate_generator_loss(generator_outputs)
+        loss, loss_details = self.calculate_generator_loss(generator_outputs)
 
         discrim_loss_metric = self.calculate_discriminator_loss(generator_outputs)
         if discrim_loss_metric is None:
-            discrim_loss_metric = torch.tensor([0.0])
+            discrim_loss_metric = torch.zeros((), device=self.device)
 
-        return loss.item(), discrim_loss_metric.item()
+        return self.metrics_to_scalars(loss, loss_details, discrim_loss_metric)
 
     def test(self):
         self.model.eval()
         self.discriminator.eval()
-        gen_loss_total = 0.0
-        disc_loss_total = 0.0
-        for idx, batch in enumerate(self.test_ds):
-            step = idx + 1
-            loss, disc_loss = self.test_step(batch)
-            gen_loss_total += loss
-            disc_loss_total += disc_loss
-        gen_loss_avg = gen_loss_total / step
-        disc_loss_avg = disc_loss_total / step
+        totals = {}
+        num_batches = 0
+        for batch in self.test_ds:
+            metrics = self.test_step(batch)
+            for name, value in metrics.items():
+                totals[name] = totals.get(name, 0.0) + value
+            num_batches += 1
+
+        if num_batches == 0:
+            raise ValueError("The test dataset contains no batches.")
+        averages = {name: value / num_batches for name, value in totals.items()}
 
         template = "Device: {}, Generator loss: {}, Discriminator loss: {}"
-        logging.info(template.format(self.device, gen_loss_avg, disc_loss_avg))
+        logging.info(
+            template.format(
+                self.device,
+                averages["generator_total"],
+                averages["discriminator"],
+            )
+        )
 
-        return gen_loss_avg
+        return averages
 
     def train(self):
         scheduler_G = torch.optim.lr_scheduler.StepLR(
@@ -239,18 +275,58 @@ class Trainer:
         scheduler_D = torch.optim.lr_scheduler.StepLR(
             self.optimizer_disc, step_size=args.decay_epoch, gamma=0.5
         )
+        num_train_batches = len(self.train_ds)
+        if num_train_batches == 0:
+            raise ValueError("The training dataset contains no complete batches.")
+
         for epoch in range(args.epochs):
             self.model.train()
             self.discriminator.train()
+            train_totals = {}
             for idx, batch in enumerate(self.train_ds):
                 step = idx + 1
-                loss, disc_loss = self.train_step(batch)
-                template = "Device: {}, Epoch {}, Step {}, loss: {}, disc_loss: {}"
+                metrics = self.train_step(batch)
+                for name, value in metrics.items():
+                    train_totals[name] = train_totals.get(name, 0.0) + value
+
                 if (step % args.log_interval) == 0:
+                    template = "Device: {}, Epoch {}, Step {}, loss: {}, disc_loss: {}"
                     logging.info(
-                        template.format(self.device, epoch, step, loss, disc_loss)
+                        template.format(
+                            self.device,
+                            epoch,
+                            step,
+                            metrics["generator_total"],
+                            metrics["discriminator"],
+                        )
                     )
-            gen_loss = self.test()
+                    global_step = epoch * num_train_batches + step
+                    for name, value in metrics.items():
+                        self.writer.add_scalar(f"train/step/{name}", value, global_step)
+
+            train_averages = {
+                name: value / num_train_batches
+                for name, value in train_totals.items()
+            }
+            for name, value in train_averages.items():
+                self.writer.add_scalar(f"train/epoch/{name}", value, epoch + 1)
+
+            test_metrics = self.test()
+            for name, value in test_metrics.items():
+                self.writer.add_scalar(f"test/epoch/{name}", value, epoch + 1)
+            self.writer.add_scalar(
+                "learning_rate/generator",
+                self.optimizer.param_groups[0]["lr"],
+                epoch + 1,
+            )
+            self.writer.add_scalar(
+                "learning_rate/discriminator",
+                self.optimizer_disc.param_groups[0]["lr"],
+                epoch + 1,
+            )
+            self.writer.flush()
+
+            gen_loss = test_metrics["generator_total"]
             path = os.path.join(
                 args.save_model_dir,
                 "CMGAN_epoch_" + str(epoch) + "_" + str(gen_loss)[:5],
@@ -272,8 +348,12 @@ def main():
     train_ds, test_ds = dataloader.load_data(
         args.data_dir, args.batch_size, 2, args.cut_len
     )
-    trainer = Trainer(train_ds, test_ds, device)
-    trainer.train()
+    writer = SummaryWriter(log_dir=args.tensorboard_dir)
+    try:
+        trainer = Trainer(train_ds, test_ds, device, writer)
+        trainer.train()
+    finally:
+        writer.close()
 
 
 if __name__ == "__main__":
