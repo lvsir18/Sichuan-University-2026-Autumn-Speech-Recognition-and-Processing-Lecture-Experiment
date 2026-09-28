@@ -1,0 +1,11 @@
+.git/
+VoiceBank-DEMAND/
+output/
+presentation/
+reports/
+CMGAN/checkpoints/
+CMGAN/runs/
+CMGAN/smoke_dataset/
+CMGAN/src/smoke_ckpt/
+__pycache__/
+*.py[cod]

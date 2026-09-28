@@ -1,0 +1,16 @@
+name: cmgan-speech-enhancement
+
+services:
+  cmgan:
+    image: cmgan-speech-enhancement:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    init: true
+    gpus: all
+    shm_size: 2gb
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - .:/workspace
