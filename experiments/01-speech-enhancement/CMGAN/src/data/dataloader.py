@@ -28,6 +28,8 @@ class DemandDataset(torch.utils.data.Dataset):
         noisy_ds = noisy_ds.squeeze()
         length = len(clean_ds)
         assert length == len(noisy_ds)
+        if self.cut_len is None:
+            return clean_ds, noisy_ds, length
         if length < self.cut_len:
             units = self.cut_len // length
             clean_ds_final = []
@@ -53,7 +55,7 @@ def load_data(ds_dir, batch_size, n_cpu, cut_len):
     test_dir = os.path.join(ds_dir, "test")
 
     train_ds = DemandDataset(train_dir, cut_len)
-    test_ds = DemandDataset(test_dir, cut_len)
+    test_ds = DemandDataset(test_dir, cut_len=None)
 
     train_dataset = torch.utils.data.DataLoader(
         dataset=train_ds,
@@ -65,7 +67,7 @@ def load_data(ds_dir, batch_size, n_cpu, cut_len):
     )
     test_dataset = torch.utils.data.DataLoader(
         dataset=test_ds,
-        batch_size=batch_size,
+        batch_size=1,
         pin_memory=True,
         shuffle=False,
         drop_last=False,

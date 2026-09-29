@@ -22,10 +22,10 @@ def build_parser(experiment_dir):
         default=experiment_dir / "VoiceBank-DEMAND",
         help="dataset root containing train/ and test/ (default: VoiceBank-DEMAND)",
     )
-    parser.add_argument("--epochs", type=int, default=120)
-    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--log-interval", type=int, default=500)
-    parser.add_argument("--decay-epoch", type=int, default=30)
+    parser.add_argument("--decay-epoch", type=int, default=12)
     parser.add_argument("--init-lr", type=float, default=5e-4)
     parser.add_argument("--cut-len", type=int, default=32000)
     parser.add_argument(

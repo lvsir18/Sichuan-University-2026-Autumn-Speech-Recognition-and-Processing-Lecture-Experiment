@@ -50,7 +50,7 @@ class Discriminator(nn.Module):
             ),
             nn.InstanceNorm2d(ndf * 8, affine=True),
             nn.PReLU(8 * ndf),
-            nn.AdaptiveMaxPool2d(1),
+            nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
             nn.utils.spectral_norm(nn.Linear(ndf * 8, ndf * 4)),
             nn.Dropout(0.3),

@@ -11,10 +11,10 @@ from torch.utils.tensorboard import SummaryWriter
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--epochs", type=int, default=120, help="number of epochs of training")
+parser.add_argument("--epochs", type=int, default=50, help="number of epochs of training")
 parser.add_argument("--batch_size", type=int, default=4)
 parser.add_argument("--log_interval", type=int, default=500)
-parser.add_argument("--decay_epoch", type=int, default=30, help="epoch from which to start lr decay")
+parser.add_argument("--decay_epoch", type=int, default=12, help="halve the learning rate every N epochs")
 parser.add_argument("--init_lr", type=float, default=5e-4, help="initial learning rate")
 parser.add_argument("--cut_len", type=int, default=16000*2, help="cut length, default is 2 seconds in denoise "
                                                                  "and dereverberation")
@@ -24,7 +24,7 @@ parser.add_argument("--save_model_dir", type=str, default='./saved_model',
                     help="dir of saved model")
 parser.add_argument("--tensorboard_dir", type=str, default='./runs',
                     help="dir for TensorBoard event files")
-parser.add_argument("--loss_weights", type=list, default=[0.1, 0.9, 0.2, 0.05],
+parser.add_argument("--loss_weights", type=float, nargs=4, default=[0.3, 0.7, 1.0, 0.01],
                     help="weights of RI components, magnitude, time loss, and Metric Disc")
 args = parser.parse_args()
 logging.basicConfig(level=logging.INFO)
@@ -104,6 +104,7 @@ class Trainer:
             self.hop,
             window=torch.hamming_window(self.n_fft).to(self.device),
             onesided=True,
+            length=clean.size(-1),
         )
 
         return {
@@ -113,6 +114,7 @@ class Trainer:
             "clean_real": clean_real,
             "clean_imag": clean_imag,
             "clean_mag": clean_mag,
+            "clean": clean,
             "est_audio": est_audio,
         }
 
@@ -201,7 +203,6 @@ class Trainer:
             noisy,
         )
         generator_outputs["one_labels"] = one_labels
-        generator_outputs["clean"] = clean
 
         loss, loss_details = self.calculate_generator_loss(generator_outputs)
         self.optimizer.zero_grad()
@@ -232,7 +233,6 @@ class Trainer:
             noisy,
         )
         generator_outputs["one_labels"] = one_labels
-        generator_outputs["clean"] = clean
 
         loss, loss_details = self.calculate_generator_loss(generator_outputs)
 
